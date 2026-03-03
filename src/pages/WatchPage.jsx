@@ -98,6 +98,7 @@ export default function WatchPage() {
   const fullscreenScrollRef = useRef(null);
   const chapterRequestIdRef = useRef(0);
   const pendingExitProgressRef = useRef(null);
+  const skipAutoRestoreOnceRef = useRef(false);
   const restoreLockUntilRef = useRef(0);
   const [isReaderFullscreen, setIsReaderFullscreen] = useState(false);
 
@@ -227,6 +228,10 @@ export default function WatchPage() {
   useEffect(() => {
     if (!selectedChapter || typeof window === "undefined") return;
     if (isReaderFullscreen) return;
+    if (skipAutoRestoreOnceRef.current) {
+      skipAutoRestoreOnceRef.current = false;
+      return;
+    }
 
     const hasNovelContent = Boolean(novelContent.html) || novelContent.paragraphs.length > 0;
     const hasComicContent = images.length > 0;
@@ -332,6 +337,7 @@ export default function WatchPage() {
       : 0;
     const progress = Number.isFinite(rawProgress) ? Math.min(1, Math.max(0, rawProgress)) : 0;
     pendingExitProgressRef.current = progress;
+    skipAutoRestoreOnceRef.current = true;
 
     setIsReaderFullscreen(false);
   };
