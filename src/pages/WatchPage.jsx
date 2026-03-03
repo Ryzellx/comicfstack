@@ -96,8 +96,8 @@ export default function WatchPage() {
   const pageTopRef = useRef(null);
   const readerPanelRef = useRef(null);
   const fullscreenScrollRef = useRef(null);
-  const fullscreenStartChapterRef = useRef("");
   const chapterRequestIdRef = useRef(0);
+  const pendingExitProgressRef = useRef(null);
   const restoreLockUntilRef = useRef(0);
   const [isReaderFullscreen, setIsReaderFullscreen] = useState(false);
 
@@ -322,7 +322,6 @@ export default function WatchPage() {
   };
 
   const openReaderFullscreen = () => {
-    fullscreenStartChapterRef.current = selectedChapter || "";
     setIsReaderFullscreen(true);
   };
 
@@ -332,11 +331,15 @@ export default function WatchPage() {
       ? container.scrollTop / Math.max(1, container.scrollHeight - container.clientHeight)
       : 0;
     const progress = Number.isFinite(rawProgress) ? Math.min(1, Math.max(0, rawProgress)) : 0;
-    const chapterChangedInFullscreen = fullscreenStartChapterRef.current !== (selectedChapter || "");
+    pendingExitProgressRef.current = progress;
 
     setIsReaderFullscreen(false);
+  };
 
-    if (typeof window === "undefined") return;
+  useEffect(() => {
+    if (isReaderFullscreen || typeof window === "undefined") return;
+    const savedProgress = pendingExitProgressRef.current;
+    if (savedProgress == null) return;
 
     window.requestAnimationFrame(() => {
       window.requestAnimationFrame(() => {
@@ -346,13 +349,9 @@ export default function WatchPage() {
         const rect = readerEl.getBoundingClientRect();
         const readerTop = window.scrollY + rect.top;
         const fallbackTop = Math.max(0, readerTop);
-        if (chapterChangedInFullscreen || loading) {
-          window.scrollTo({ top: fallbackTop, left: 0, behavior: "auto" });
-          return;
-        }
 
         const readerScrollable = Math.max(1, readerEl.scrollHeight - window.innerHeight);
-        const targetY = readerTop + progress * readerScrollable;
+        const targetY = readerTop + savedProgress * readerScrollable;
         const docMaxScroll = Math.max(
           0,
           (document.documentElement?.scrollHeight || 0) - window.innerHeight,
@@ -360,9 +359,10 @@ export default function WatchPage() {
         );
         const safeY = Math.min(docMaxScroll, Math.max(fallbackTop, targetY));
         window.scrollTo({ top: safeY, left: 0, behavior: "auto" });
+        pendingExitProgressRef.current = null;
       });
     });
-  };
+  }, [isReaderFullscreen, selectedChapter, images.length, novelContent.html, novelContent.paragraphs.length]);
 
   if (loading) {
     return (
