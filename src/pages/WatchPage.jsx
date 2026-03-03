@@ -101,6 +101,7 @@ export default function WatchPage() {
   const [isReaderFullscreen, setIsReaderFullscreen] = useState(false);
   const [showNextPrompt, setShowNextPrompt] = useState(false);
   const [dismissedNextPrompt, setDismissedNextPrompt] = useState(false);
+  const enableAutoNextPrompt = false;
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -225,6 +226,7 @@ export default function WatchPage() {
 
   useEffect(() => {
     if (!selectedChapter || typeof window === "undefined") return;
+    if (isReaderFullscreen) return;
 
     const hasNovelContent = Boolean(novelContent.html) || novelContent.paragraphs.length > 0;
     const hasComicContent = images.length > 0;
@@ -249,10 +251,11 @@ export default function WatchPage() {
       window.cancelAnimationFrame(rafId);
       window.clearTimeout(timerId);
     };
-  }, [selectedChapter, chapterProgressKey, images.length, novelContent.html, novelContent.paragraphs.length]);
+  }, [selectedChapter, chapterProgressKey, images.length, novelContent.html, novelContent.paragraphs.length, isReaderFullscreen]);
 
   useEffect(() => {
     if (!selectedChapter || !chapterProgressKey || typeof window === "undefined") return;
+    if (isReaderFullscreen) return;
 
     let ticking = false;
     const onScroll = () => {
@@ -287,10 +290,10 @@ export default function WatchPage() {
 
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
-  }, [selectedChapter, chapterProgressKey]);
+  }, [selectedChapter, chapterProgressKey, isReaderFullscreen]);
 
   useEffect(() => {
-    if (!isReaderFullscreen) {
+    if (!isReaderFullscreen || !enableAutoNextPrompt) {
       setShowNextPrompt(false);
       setDismissedNextPrompt(false);
       return;
@@ -315,7 +318,16 @@ export default function WatchPage() {
     onScroll();
     container.addEventListener("scroll", onScroll, { passive: true });
     return () => container.removeEventListener("scroll", onScroll);
-  }, [isReaderFullscreen, dismissedNextPrompt, selectedChapter, images.length, novelContent.html, novelContent.paragraphs.length, isChapterLoading]);
+  }, [
+    isReaderFullscreen,
+    dismissedNextPrompt,
+    selectedChapter,
+    images.length,
+    novelContent.html,
+    novelContent.paragraphs.length,
+    isChapterLoading,
+    enableAutoNextPrompt,
+  ]);
 
   useEffect(() => {
     if (typeof document === "undefined") return;
@@ -635,7 +647,7 @@ export default function WatchPage() {
             </div>
           </div>
 
-          {showNextPrompt ? (
+          {enableAutoNextPrompt && showNextPrompt ? (
             <div className="pointer-events-none fixed inset-x-0 bottom-0 z-[95] p-3 sm:p-4">
               <div className="pointer-events-auto mx-auto flex w-full max-w-3xl flex-wrap items-center justify-between gap-2 rounded-2xl border border-white/15 bg-black/35 p-3">
                 {nextChapter ? (
