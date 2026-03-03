@@ -428,9 +428,11 @@ export default function WatchPage() {
         <button
           type="button"
           onClick={openReaderFullscreen}
+          aria-label="Masuk fullscreen chapter"
+          title="Masuk fullscreen chapter"
           className="rounded-xl border border-emerald-300/40 bg-emerald-500/10 px-3 py-2 text-sm font-semibold text-emerald-100 transition hover:bg-emerald-500/20 sm:col-span-2"
         >
-          Masuk Fullscreen Chapter
+          ⛶
         </button>
       </div>
 
@@ -493,9 +495,11 @@ export default function WatchPage() {
         <button
           type="button"
           onClick={openReaderFullscreen}
+          aria-label="Masuk fullscreen chapter"
+          title="Masuk fullscreen chapter"
           className="rounded-xl border border-emerald-300/40 bg-emerald-500/10 px-3 py-2 text-sm font-semibold text-emerald-100 transition hover:bg-emerald-500/20 sm:col-span-2"
         >
-          Masuk Fullscreen Chapter
+          ⛶
         </button>
       </div>
 
@@ -510,25 +514,31 @@ export default function WatchPage() {
                     <button
                       type="button"
                       onClick={() => changeChapter(prevChapter)}
+                      aria-label="Chapter sebelumnya"
+                      title="Chapter sebelumnya"
                       disabled={!prevChapter}
                       className="rounded-lg border border-white/20 bg-white/5 px-3 py-1.5 text-xs text-white disabled:cursor-not-allowed disabled:opacity-40"
                     >
-                      Sebelumnya
+                      ←
                     </button>
                     <button
                       type="button"
                       onClick={() => changeChapter(nextChapter)}
+                      aria-label="Chapter berikutnya"
+                      title="Chapter berikutnya"
                       disabled={!nextChapter}
                       className="rounded-lg border border-white/20 bg-white/5 px-3 py-1.5 text-xs text-white disabled:cursor-not-allowed disabled:opacity-40"
                     >
-                      Berikutnya
+                      →
                     </button>
                     <button
                       type="button"
                       onClick={closeReaderFullscreen}
+                      aria-label="Keluar fullscreen"
+                      title="Keluar fullscreen"
                       className="rounded-lg border border-rose-300/40 bg-rose-500/15 px-3 py-1.5 text-xs font-semibold text-rose-100"
                     >
-                      Kembali dari Fullscreen
+                      ✕
                     </button>
                   </div>
                 </div>
@@ -597,9 +607,11 @@ export default function WatchPage() {
                       <button
                         type="button"
                         onClick={() => changeChapter(nextChapter)}
+                        aria-label="Lanjut chapter berikutnya"
+                        title="Lanjut chapter berikutnya"
                         className="rounded-lg bg-emerald-500 px-3 py-1.5 text-xs font-semibold text-white"
                       >
-                        Ya, Lanjut
+                        →
                       </button>
                       <button
                         type="button"
@@ -607,9 +619,11 @@ export default function WatchPage() {
                           setShowNextPrompt(false);
                           setDismissedNextPrompt(true);
                         }}
+                        aria-label="Tutup prompt lanjut"
+                        title="Tutup prompt lanjut"
                         className="rounded-lg border border-white/20 bg-white/5 px-3 py-1.5 text-xs text-white"
                       >
-                        Tidak
+                        ✕
                       </button>
                     </div>
                   </>
@@ -619,9 +633,11 @@ export default function WatchPage() {
                     <button
                       type="button"
                       onClick={closeReaderFullscreen}
+                      aria-label="Keluar fullscreen"
+                      title="Keluar fullscreen"
                       className="rounded-lg border border-white/20 bg-white/5 px-3 py-1.5 text-xs text-white"
                     >
-                      Kembali dari Fullscreen
+                      ✕
                     </button>
                   </>
                 )}
