@@ -150,6 +150,7 @@ export default function HomePage() {
   });
   const [query, setQuery] = useState("");
   const [searchResults, setSearchResults] = useState([]);
+  const [hasSearched, setHasSearched] = useState(false);
   const [searchHistory, setSearchHistory] = useState([]);
   const [searchHistoryByType, setSearchHistoryByType] = useState(createEmptyHistoryByType);
   const [searchCorrection, setSearchCorrection] = useState("");
@@ -289,6 +290,7 @@ export default function HomePage() {
     setQuery("");
     setSearchResults([]);
     setSearchCorrection("");
+    setHasSearched(false);
   }, [activeType]);
 
   const scopedHome = useMemo(
@@ -400,12 +402,14 @@ export default function HomePage() {
     if (!cleaned) {
       setSearchResults([]);
       setSearchCorrection("");
+      setHasSearched(false);
       return;
     }
 
     try {
       setError("");
       setSearchCorrection("");
+      setHasSearched(true);
       let list = [];
       if (isNovelActive) {
         const searchPayload = await api.searchNovel(cleaned);
@@ -547,12 +551,17 @@ export default function HomePage() {
         ) : null}
       </section>
 
-      {error ? <p className="text-sm text-red-400">{error}</p> : null}
+  {error ? <p className="text-sm text-red-400">{error}</p> : null}
       {searchResults.length > 0 ? (
         <HorizontalRail
           title={`Hasil Pencarian ${activeType.toUpperCase()}`}
           items={searchResults}
         />
+      ) : null}
+      {!error && hasSearched && searchResults.length === 0 ? (
+        <p className="rounded-xl border border-amber-300/30 bg-amber-500/10 p-3 text-sm text-amber-200">
+          Judul tidak ada.
+        </p>
       ) : null}
 
       <HorizontalRail

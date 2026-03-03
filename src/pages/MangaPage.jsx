@@ -7,6 +7,7 @@ export default function MangaPage() {
   const [error, setError] = useState("");
   const [query, setQuery] = useState("");
   const [items, setItems] = useState([]);
+  const [hasSearched, setHasSearched] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -31,11 +32,15 @@ export default function MangaPage() {
 
   const onSearch = async (e) => {
     e.preventDefault();
-    if (!query.trim()) return;
+    if (!query.trim()) {
+      setHasSearched(false);
+      return;
+    }
 
     try {
       setLoading(true);
       setError("");
+      setHasSearched(true);
       const payload = await api.searchManga(query.trim(), 1);
       setItems(extractMangaList(payload));
     } catch (err) {
@@ -70,6 +75,7 @@ export default function MangaPage() {
 
       {error ? <p className="text-sm text-red-400">{error}</p> : null}
       {loading ? <p className="text-sm text-emerald-200">Loading manga list...</p> : null}
+      {!loading && !error && hasSearched && items.length === 0 ? <p className="text-sm text-amber-200">Judul tidak ada.</p> : null}
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-6">
         {items.map((item, index) => (
