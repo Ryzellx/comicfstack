@@ -93,7 +93,9 @@ export default function WatchPage() {
   const [images, setImages] = useState([]);
   const [novelContent, setNovelContent] = useState({ html: "", paragraphs: [] });
   const pageTopRef = useRef(null);
+  const readerRef = useRef(null);
   const restoreLockUntilRef = useRef(0);
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -278,9 +280,39 @@ export default function WatchPage() {
     return () => window.removeEventListener("scroll", onScroll);
   }, [selectedChapter, chapterProgressKey]);
 
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+
+    const onFullscreenChange = () => {
+      setIsFullscreen(Boolean(document.fullscreenElement));
+    };
+
+    document.addEventListener("fullscreenchange", onFullscreenChange);
+    return () => document.removeEventListener("fullscreenchange", onFullscreenChange);
+  }, []);
+
   const chapterIndex = useMemo(() => episodes.findIndex((item) => item?.episodeId === selectedChapter), [episodes, selectedChapter]);
   const nextChapter = chapterIndex > 0 ? episodes[chapterIndex - 1] : null;
   const prevChapter = chapterIndex >= 0 && chapterIndex < episodes.length - 1 ? episodes[chapterIndex + 1] : null;
+  const changeChapter = (chapter) => {
+    if (!chapter?.episodeId) return;
+    setSelectedChapter(chapter.episodeId);
+  };
+
+  const toggleFullscreen = async () => {
+    if (typeof document === "undefined") return;
+    try {
+      if (document.fullscreenElement) {
+        await document.exitFullscreen();
+        return;
+      }
+      if (readerRef.current?.requestFullscreen) {
+        await readerRef.current.requestFullscreen();
+      }
+    } catch {
+      // ignore fullscreen unsupported/rejected
+    }
+  };
 
   if (loading) {
     return (
@@ -330,7 +362,7 @@ export default function WatchPage() {
 
         <button
           type="button"
-          onClick={() => prevChapter && setSelectedChapter(prevChapter.episodeId)}
+          onClick={() => changeChapter(prevChapter)}
           disabled={!prevChapter}
           className="rounded-xl border border-white/20 bg-white/5 px-3 py-2 text-sm text-white disabled:cursor-not-allowed disabled:opacity-40"
         >
@@ -338,50 +370,85 @@ export default function WatchPage() {
         </button>
         <button
           type="button"
-          onClick={() => nextChapter && setSelectedChapter(nextChapter.episodeId)}
+          onClick={() => changeChapter(nextChapter)}
           disabled={!nextChapter}
           className="rounded-xl border border-white/20 bg-white/5 px-3 py-2 text-sm text-white disabled:cursor-not-allowed disabled:opacity-40"
         >
           Chapter Berikutnya
         </button>
+        <button
+          type="button"
+          onClick={toggleFullscreen}
+          className="rounded-xl border border-emerald-300/40 bg-emerald-500/10 px-3 py-2 text-sm font-semibold text-emerald-100 transition hover:bg-emerald-500/20 sm:col-span-2"
+        >
+          {isFullscreen ? "Keluar Fullscreen" : "Fullscreen Mode"}
+        </button>
       </div>
 
-      {source === NOVEL_PROVIDER ? (
-        <div className="rounded-2xl border border-white/10 bg-emerald-950 p-4 sm:p-6">
-          {novelContent.html ? (
-            <article
-              className="max-w-none space-y-4 text-[15px] leading-7 text-slate-200"
-              dangerouslySetInnerHTML={{ __html: novelContent.html }}
-            />
-          ) : novelContent.paragraphs.length > 0 ? (
-            <article className="space-y-4">
-              {novelContent.paragraphs.map((line, index) => (
-                <p key={`${selectedChapter}-line-${index + 1}`} className="text-[15px] leading-7 text-slate-200">
-                  {line}
-                </p>
-              ))}
-            </article>
-          ) : (
-            <p className="text-sm text-emerald-100">Konten chapter novel belum tersedia.</p>
-          )}
-        </div>
-      ) : (
-        <div className="space-y-2 rounded-2xl border border-white/10 bg-black p-2 sm:p-3">
-          {images.length > 0 ? (
-            images.map((img, index) => (
-              <img
-                key={`${selectedChapter}-page-${index + 1}`}
-                src={img}
-                alt={`Page ${index + 1}`}
-                className="w-full rounded-md"
-                loading={index < 2 ? "eager" : "lazy"}
+      <div ref={readerRef}>
+        {source === NOVEL_PROVIDER ? (
+          <div className="rounded-2xl border border-white/10 bg-emerald-950 p-4 sm:p-6">
+            {novelContent.html ? (
+              <article
+                className="max-w-none space-y-4 text-[15px] leading-7 text-slate-200"
+                dangerouslySetInnerHTML={{ __html: novelContent.html }}
               />
-            ))
-          ) : (
-            <p className="p-4 text-sm text-emerald-100">Gambar chapter belum tersedia.</p>
-          )}
-        </div>
-      )}
+            ) : novelContent.paragraphs.length > 0 ? (
+              <article className="space-y-4">
+                {novelContent.paragraphs.map((line, index) => (
+                  <p key={`${selectedChapter}-line-${index + 1}`} className="text-[15px] leading-7 text-slate-200">
+                    {line}
+                  </p>
+                ))}
+              </article>
+            ) : (
+              <p className="text-sm text-emerald-100">Konten chapter novel belum tersedia.</p>
+            )}
+          </div>
+        ) : (
+          <div className="space-y-2 rounded-2xl border border-white/10 bg-black p-2 sm:p-3">
+            {images.length > 0 ? (
+              images.map((img, index) => (
+                <img
+                  key={`${selectedChapter}-page-${index + 1}`}
+                  src={img}
+                  alt={`Page ${index + 1}`}
+                  className="w-full rounded-md"
+                  loading={index < 2 ? "eager" : "lazy"}
+                />
+              ))
+            ) : (
+              <p className="p-4 text-sm text-emerald-100">Gambar chapter belum tersedia.</p>
+            )}
+          </div>
+        )}
+      </div>
+
+      <div className="grid gap-3 rounded-2xl border border-white/10 bg-emerald-900/60 p-4 sm:grid-cols-2">
+        <button
+          type="button"
+          onClick={() => changeChapter(prevChapter)}
+          disabled={!prevChapter}
+          className="rounded-xl border border-white/20 bg-white/5 px-3 py-2 text-sm text-white disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          Chapter Sebelumnya
+        </button>
+        <button
+          type="button"
+          onClick={() => changeChapter(nextChapter)}
+          disabled={!nextChapter}
+          className="rounded-xl border border-white/20 bg-white/5 px-3 py-2 text-sm text-white disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          Chapter Berikutnya
+        </button>
+        <button
+          type="button"
+          onClick={toggleFullscreen}
+          className="rounded-xl border border-emerald-300/40 bg-emerald-500/10 px-3 py-2 text-sm font-semibold text-emerald-100 transition hover:bg-emerald-500/20 sm:col-span-2"
+        >
+          {isFullscreen ? "Keluar Fullscreen" : "Fullscreen Mode"}
+        </button>
+      </div>
 
       <Link
         to={`/anime/${encodeURIComponent(source || ANIME_PROVIDER)}/${encodeURIComponent(animeId)}${
