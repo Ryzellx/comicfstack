@@ -97,11 +97,9 @@ export default function WatchPage() {
   const readerPanelRef = useRef(null);
   const fullscreenScrollRef = useRef(null);
   const fullscreenStartChapterRef = useRef("");
+  const chapterRequestIdRef = useRef(0);
   const restoreLockUntilRef = useRef(0);
   const [isReaderFullscreen, setIsReaderFullscreen] = useState(false);
-  const [showNextPrompt, setShowNextPrompt] = useState(false);
-  const [dismissedNextPrompt, setDismissedNextPrompt] = useState(false);
-  const enableAutoNextPrompt = false;
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -163,6 +161,8 @@ export default function WatchPage() {
 
   useEffect(() => {
     let active = true;
+    const requestId = chapterRequestIdRef.current + 1;
+    chapterRequestIdRef.current = requestId;
 
     (async () => {
       if (!selectedChapter) {
@@ -176,7 +176,7 @@ export default function WatchPage() {
         setIsChapterLoading(true);
         setError("");
         const payload = await api.getChapter(selectedChapter, { source });
-        if (!active) return;
+        if (!active || chapterRequestIdRef.current !== requestId) return;
 
         const pages = extractChapterImages(payload);
         if (source === NOVEL_PROVIDER) {
@@ -200,19 +200,19 @@ export default function WatchPage() {
           slug,
         });
       } catch (err) {
-        if (!active) return;
+        if (!active || chapterRequestIdRef.current !== requestId) return;
         setImages([]);
         setNovelContent({ html: "", paragraphs: [] });
         setError(err.message || "Gagal memuat chapter.");
       } finally {
-        if (active) setIsChapterLoading(false);
+        if (active && chapterRequestIdRef.current === requestId) setIsChapterLoading(false);
       }
     })();
 
     return () => {
       active = false;
     };
-  }, [selectedChapter, episodes, animeId, detail?.animeId, detail?.title, detail?.poster, source, slug, typeFromQuery, markEpisodeWatched]);
+  }, [selectedChapter, source]);
 
   const chapterProgressKey = useMemo(
     () =>
@@ -293,43 +293,6 @@ export default function WatchPage() {
   }, [selectedChapter, chapterProgressKey, isReaderFullscreen]);
 
   useEffect(() => {
-    if (!isReaderFullscreen || !enableAutoNextPrompt) {
-      setShowNextPrompt(false);
-      setDismissedNextPrompt(false);
-      return;
-    }
-    if (isChapterLoading) {
-      setShowNextPrompt(false);
-      return;
-    }
-
-    const container = fullscreenScrollRef.current;
-    if (!container) return;
-
-    const onScroll = () => {
-      const nearBottom = container.scrollTop + container.clientHeight >= container.scrollHeight - 80;
-      if (!nearBottom) {
-        setShowNextPrompt(false);
-        return;
-      }
-      if (!dismissedNextPrompt) setShowNextPrompt(true);
-    };
-
-    onScroll();
-    container.addEventListener("scroll", onScroll, { passive: true });
-    return () => container.removeEventListener("scroll", onScroll);
-  }, [
-    isReaderFullscreen,
-    dismissedNextPrompt,
-    selectedChapter,
-    images.length,
-    novelContent.html,
-    novelContent.paragraphs.length,
-    isChapterLoading,
-    enableAutoNextPrompt,
-  ]);
-
-  useEffect(() => {
     if (typeof document === "undefined") return;
     if (!isReaderFullscreen) return;
 
@@ -345,8 +308,6 @@ export default function WatchPage() {
   const prevChapter = chapterIndex >= 0 && chapterIndex < episodes.length - 1 ? episodes[chapterIndex + 1] : null;
   const changeChapter = (chapter) => {
     if (!chapter?.episodeId || isChapterLoading || chapter.episodeId === selectedChapter) return;
-    setDismissedNextPrompt(false);
-    setShowNextPrompt(false);
     if (isReaderFullscreen && fullscreenScrollRef.current) {
       fullscreenScrollRef.current.scrollTo({ top: 0, left: 0, behavior: "auto" });
     }
@@ -354,8 +315,6 @@ export default function WatchPage() {
   };
   const selectChapter = (chapterId) => {
     if (!chapterId || isChapterLoading || chapterId === selectedChapter) return;
-    setDismissedNextPrompt(false);
-    setShowNextPrompt(false);
     if (isReaderFullscreen && fullscreenScrollRef.current) {
       fullscreenScrollRef.current.scrollTo({ top: 0, left: 0, behavior: "auto" });
     }
@@ -364,8 +323,6 @@ export default function WatchPage() {
 
   const openReaderFullscreen = () => {
     fullscreenStartChapterRef.current = selectedChapter || "";
-    setDismissedNextPrompt(false);
-    setShowNextPrompt(false);
     setIsReaderFullscreen(true);
   };
 
@@ -378,8 +335,6 @@ export default function WatchPage() {
     const chapterChangedInFullscreen = fullscreenStartChapterRef.current !== (selectedChapter || "");
 
     setIsReaderFullscreen(false);
-    setDismissedNextPrompt(false);
-    setShowNextPrompt(false);
 
     if (typeof window === "undefined") return;
 
@@ -558,54 +513,17 @@ export default function WatchPage() {
               <div className="sticky top-0 z-10 rounded-2xl border border-white/15 bg-black/35 p-3">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <p className="text-sm font-semibold text-white">{detail.title || `Komik ${animeId}`}</p>
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      onClick={() => changeChapter(prevChapter)}
-                      aria-label="Chapter sebelumnya"
-                      title="Chapter sebelumnya"
-                      disabled={!prevChapter || isChapterLoading}
-                      className="rounded-lg border border-white/20 bg-white/5 px-3 py-1.5 text-xs text-white disabled:cursor-not-allowed disabled:opacity-40"
-                    >
-                      Sebelumnya
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => changeChapter(nextChapter)}
-                      aria-label="Chapter berikutnya"
-                      title="Chapter berikutnya"
-                      disabled={!nextChapter || isChapterLoading}
-                      className="rounded-lg border border-white/20 bg-white/5 px-3 py-1.5 text-xs text-white disabled:cursor-not-allowed disabled:opacity-40"
-                    >
-                      Berikutnya
-                    </button>
-                    <button
-                      type="button"
-                      onClick={closeReaderFullscreen}
-                      aria-label="Keluar fullscreen"
-                      title="Keluar fullscreen"
-                      className="rounded-lg border border-rose-300/40 bg-rose-500/15 px-3 py-1.5 text-xs font-semibold text-rose-100"
-                    >
-                      Keluar
-                    </button>
-                  </div>
+                  <button
+                    type="button"
+                    onClick={closeReaderFullscreen}
+                    aria-label="Keluar fullscreen"
+                    title="Keluar fullscreen"
+                    className="rounded-lg border border-rose-300/40 bg-rose-500/15 px-3 py-1.5 text-xs font-semibold text-rose-100"
+                  >
+                    Keluar
+                  </button>
                 </div>
                 {isChapterLoading ? <p className="mt-2 text-xs text-emerald-200">Loading chapter...</p> : null}
-                <label className="mt-2 block text-xs text-emerald-200">
-                  <span className="mb-1 block uppercase tracking-wide">Pilih Chapter</span>
-                  <select
-                    value={selectedChapter}
-                    onChange={(e) => selectChapter(e.target.value)}
-                    className="w-full rounded-xl border border-white/15 bg-black/60 px-3 py-2 text-sm text-white outline-none focus:border-emerald-300/60"
-                    disabled={isChapterLoading}
-                  >
-                    {episodes.map((item) => (
-                      <option key={item.episodeId || item.id || item.title} value={item.episodeId || ""}>
-                        {item.title}
-                      </option>
-                    ))}
-                  </select>
-                </label>
               </div>
 
               {source === NOVEL_PROVIDER ? (
@@ -647,53 +565,6 @@ export default function WatchPage() {
             </div>
           </div>
 
-          {enableAutoNextPrompt && showNextPrompt ? (
-            <div className="pointer-events-none fixed inset-x-0 bottom-0 z-[95] p-3 sm:p-4">
-              <div className="pointer-events-auto mx-auto flex w-full max-w-3xl flex-wrap items-center justify-between gap-2 rounded-2xl border border-white/15 bg-black/35 p-3">
-                {nextChapter ? (
-                  <>
-                    <p className="text-sm text-white">Sudah mentok chapter ini. Lanjut ke chapter berikutnya?</p>
-                    <div className="flex gap-2">
-                      <button
-                        type="button"
-                        onClick={() => changeChapter(nextChapter)}
-                        aria-label="Lanjut chapter berikutnya"
-                        title="Lanjut chapter berikutnya"
-                        className="rounded-lg bg-emerald-500 px-3 py-1.5 text-xs font-semibold text-white"
-                      >
-                        Lanjut
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setShowNextPrompt(false);
-                          setDismissedNextPrompt(true);
-                        }}
-                        aria-label="Tutup prompt lanjut"
-                        title="Tutup prompt lanjut"
-                        className="rounded-lg border border-white/20 bg-white/5 px-3 py-1.5 text-xs text-white"
-                      >
-                        Tutup
-                      </button>
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <p className="text-sm text-white">Ini chapter terakhir.</p>
-                    <button
-                      type="button"
-                      onClick={closeReaderFullscreen}
-                      aria-label="Keluar fullscreen"
-                      title="Keluar fullscreen"
-                      className="rounded-lg border border-white/20 bg-white/5 px-3 py-1.5 text-xs text-white"
-                    >
-                      Keluar
-                    </button>
-                  </>
-                )}
-              </div>
-            </div>
-          ) : null}
         </div>
       ) : null}
 
