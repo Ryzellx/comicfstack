@@ -95,6 +95,7 @@ export default function WatchPage() {
   const pageTopRef = useRef(null);
   const readerPanelRef = useRef(null);
   const fullscreenScrollRef = useRef(null);
+  const fullscreenStartChapterRef = useRef("");
   const restoreLockUntilRef = useRef(0);
   const [isReaderFullscreen, setIsReaderFullscreen] = useState(false);
   const [showNextPrompt, setShowNextPrompt] = useState(false);
@@ -335,6 +336,7 @@ export default function WatchPage() {
   };
 
   const openReaderFullscreen = () => {
+    fullscreenStartChapterRef.current = selectedChapter || "";
     setDismissedNextPrompt(false);
     setShowNextPrompt(false);
     setIsReaderFullscreen(true);
@@ -342,25 +344,42 @@ export default function WatchPage() {
 
   const closeReaderFullscreen = () => {
     const container = fullscreenScrollRef.current;
-    const progress = container
+    const rawProgress = container
       ? container.scrollTop / Math.max(1, container.scrollHeight - container.clientHeight)
       : 0;
+    const progress = Number.isFinite(rawProgress) ? Math.min(1, Math.max(0, rawProgress)) : 0;
+    const chapterChangedInFullscreen = fullscreenStartChapterRef.current !== (selectedChapter || "");
 
     setIsReaderFullscreen(false);
     setDismissedNextPrompt(false);
     setShowNextPrompt(false);
 
     if (typeof window === "undefined") return;
-    window.setTimeout(() => {
-      const readerEl = readerPanelRef.current;
-      if (!readerEl) return;
 
-      const rect = readerEl.getBoundingClientRect();
-      const readerTop = window.scrollY + rect.top;
-      const readerScrollable = Math.max(1, readerEl.scrollHeight - window.innerHeight);
-      const targetY = readerTop + progress * readerScrollable;
-      window.scrollTo({ top: Math.max(readerTop, targetY), left: 0, behavior: "auto" });
-    }, 0);
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => {
+        const readerEl = readerPanelRef.current;
+        if (!readerEl) return;
+
+        const rect = readerEl.getBoundingClientRect();
+        const readerTop = window.scrollY + rect.top;
+        const fallbackTop = Math.max(0, readerTop);
+        if (chapterChangedInFullscreen || loading) {
+          window.scrollTo({ top: fallbackTop, left: 0, behavior: "auto" });
+          return;
+        }
+
+        const readerScrollable = Math.max(1, readerEl.scrollHeight - window.innerHeight);
+        const targetY = readerTop + progress * readerScrollable;
+        const docMaxScroll = Math.max(
+          0,
+          (document.documentElement?.scrollHeight || 0) - window.innerHeight,
+          (document.body?.scrollHeight || 0) - window.innerHeight
+        );
+        const safeY = Math.min(docMaxScroll, Math.max(fallbackTop, targetY));
+        window.scrollTo({ top: safeY, left: 0, behavior: "auto" });
+      });
+    });
   };
 
   if (loading) {
@@ -432,7 +451,7 @@ export default function WatchPage() {
           title="Masuk fullscreen chapter"
           className="rounded-xl border border-emerald-300/40 bg-emerald-500/10 px-3 py-2 text-sm font-semibold text-emerald-100 transition hover:bg-emerald-500/20 sm:col-span-2"
         >
-          ⛶
+          Masuk Fullscreen
         </button>
       </div>
 
@@ -501,7 +520,7 @@ export default function WatchPage() {
           title="Masuk fullscreen chapter"
           className="rounded-xl border border-emerald-300/40 bg-emerald-500/10 px-3 py-2 text-sm font-semibold text-emerald-100 transition hover:bg-emerald-500/20 sm:col-span-2"
         >
-          ⛶
+          Masuk Fullscreen
         </button>
       </div>
 
@@ -521,7 +540,7 @@ export default function WatchPage() {
                       disabled={!prevChapter}
                       className="rounded-lg border border-white/20 bg-white/5 px-3 py-1.5 text-xs text-white disabled:cursor-not-allowed disabled:opacity-40"
                     >
-                      ←
+                      Sebelumnya
                     </button>
                     <button
                       type="button"
@@ -531,7 +550,7 @@ export default function WatchPage() {
                       disabled={!nextChapter}
                       className="rounded-lg border border-white/20 bg-white/5 px-3 py-1.5 text-xs text-white disabled:cursor-not-allowed disabled:opacity-40"
                     >
-                      →
+                      Berikutnya
                     </button>
                     <button
                       type="button"
@@ -540,7 +559,7 @@ export default function WatchPage() {
                       title="Keluar fullscreen"
                       className="rounded-lg border border-rose-300/40 bg-rose-500/15 px-3 py-1.5 text-xs font-semibold text-rose-100"
                     >
-                      ✕
+                      Keluar
                     </button>
                   </div>
                 </div>
@@ -613,7 +632,7 @@ export default function WatchPage() {
                         title="Lanjut chapter berikutnya"
                         className="rounded-lg bg-emerald-500 px-3 py-1.5 text-xs font-semibold text-white"
                       >
-                        →
+                        Lanjut
                       </button>
                       <button
                         type="button"
@@ -625,7 +644,7 @@ export default function WatchPage() {
                         title="Tutup prompt lanjut"
                         className="rounded-lg border border-white/20 bg-white/5 px-3 py-1.5 text-xs text-white"
                       >
-                        ✕
+                        Tutup
                       </button>
                     </div>
                   </>
@@ -639,7 +658,7 @@ export default function WatchPage() {
                       title="Keluar fullscreen"
                       className="rounded-lg border border-white/20 bg-white/5 px-3 py-1.5 text-xs text-white"
                     >
-                      ✕
+                      Keluar
                     </button>
                   </>
                 )}
