@@ -93,6 +93,7 @@ export default function WatchPage() {
   const [images, setImages] = useState([]);
   const [novelContent, setNovelContent] = useState({ html: "", paragraphs: [] });
   const pageTopRef = useRef(null);
+  const readerPanelRef = useRef(null);
   const fullscreenScrollRef = useRef(null);
   const restoreLockUntilRef = useRef(0);
   const [isReaderFullscreen, setIsReaderFullscreen] = useState(false);
@@ -340,9 +341,26 @@ export default function WatchPage() {
   };
 
   const closeReaderFullscreen = () => {
+    const container = fullscreenScrollRef.current;
+    const progress = container
+      ? container.scrollTop / Math.max(1, container.scrollHeight - container.clientHeight)
+      : 0;
+
     setIsReaderFullscreen(false);
     setDismissedNextPrompt(false);
     setShowNextPrompt(false);
+
+    if (typeof window === "undefined") return;
+    window.setTimeout(() => {
+      const readerEl = readerPanelRef.current;
+      if (!readerEl) return;
+
+      const rect = readerEl.getBoundingClientRect();
+      const readerTop = window.scrollY + rect.top;
+      const readerScrollable = Math.max(1, readerEl.scrollHeight - window.innerHeight);
+      const targetY = readerTop + progress * readerScrollable;
+      window.scrollTo({ top: Math.max(readerTop, targetY), left: 0, behavior: "auto" });
+    }, 0);
   };
 
   if (loading) {
@@ -416,7 +434,7 @@ export default function WatchPage() {
         </button>
       </div>
 
-      <div>
+      <div ref={readerPanelRef}>
         {source === NOVEL_PROVIDER ? (
           <div className="rounded-2xl border border-white/10 bg-emerald-950 p-4 sm:p-6">
             {novelContent.html ? (
@@ -482,10 +500,10 @@ export default function WatchPage() {
       </div>
 
       {isReaderFullscreen ? (
-        <div className="fixed inset-0 z-[90] bg-black/95">
+        <div className="fixed inset-0 z-[90] bg-black/45">
           <div ref={fullscreenScrollRef} className="h-full overflow-y-auto p-3 pb-24 sm:p-4 sm:pb-24">
             <div className="mx-auto w-full max-w-5xl space-y-4">
-              <div className="sticky top-0 z-10 rounded-2xl border border-white/15 bg-black/80 p-3 backdrop-blur">
+              <div className="sticky top-0 z-10 rounded-2xl border border-white/15 bg-black/35 p-3 backdrop-blur-sm">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <p className="text-sm font-semibold text-white">{detail.title || `Komik ${animeId}`}</p>
                   <div className="flex gap-2">
@@ -571,7 +589,7 @@ export default function WatchPage() {
 
           {showNextPrompt ? (
             <div className="pointer-events-none fixed inset-x-0 bottom-0 z-[95] p-3 sm:p-4">
-              <div className="pointer-events-auto mx-auto flex w-full max-w-3xl flex-wrap items-center justify-between gap-2 rounded-2xl border border-white/15 bg-black/90 p-3">
+              <div className="pointer-events-auto mx-auto flex w-full max-w-3xl flex-wrap items-center justify-between gap-2 rounded-2xl border border-white/15 bg-black/35 p-3 backdrop-blur-sm">
                 {nextChapter ? (
                   <>
                     <p className="text-sm text-white">Sudah mentok chapter ini. Lanjut ke chapter berikutnya?</p>
