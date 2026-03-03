@@ -93,9 +93,11 @@ export default function WatchPage() {
   const [images, setImages] = useState([]);
   const [novelContent, setNovelContent] = useState({ html: "", paragraphs: [] });
   const pageTopRef = useRef(null);
-  const readerRef = useRef(null);
+  const fullscreenScrollRef = useRef(null);
   const restoreLockUntilRef = useRef(0);
-  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isReaderFullscreen, setIsReaderFullscreen] = useState(false);
+  const [showNextPrompt, setShowNextPrompt] = useState(false);
+  const [dismissedNextPrompt, setDismissedNextPrompt] = useState(false);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -281,37 +283,66 @@ export default function WatchPage() {
   }, [selectedChapter, chapterProgressKey]);
 
   useEffect(() => {
-    if (typeof document === "undefined") return;
+    if (!isReaderFullscreen) {
+      setShowNextPrompt(false);
+      setDismissedNextPrompt(false);
+      return;
+    }
 
-    const onFullscreenChange = () => {
-      setIsFullscreen(Boolean(document.fullscreenElement));
+    const container = fullscreenScrollRef.current;
+    if (!container) return;
+
+    const onScroll = () => {
+      const nearBottom = container.scrollTop + container.clientHeight >= container.scrollHeight - 80;
+      if (!nearBottom) {
+        setShowNextPrompt(false);
+        setDismissedNextPrompt(false);
+        return;
+      }
+      if (!dismissedNextPrompt) setShowNextPrompt(true);
     };
 
-    document.addEventListener("fullscreenchange", onFullscreenChange);
-    return () => document.removeEventListener("fullscreenchange", onFullscreenChange);
-  }, []);
+    onScroll();
+    container.addEventListener("scroll", onScroll, { passive: true });
+    return () => container.removeEventListener("scroll", onScroll);
+  }, [isReaderFullscreen, dismissedNextPrompt, selectedChapter, images.length, novelContent.html, novelContent.paragraphs.length]);
+
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    if (!isReaderFullscreen) return;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [isReaderFullscreen]);
 
   const chapterIndex = useMemo(() => episodes.findIndex((item) => item?.episodeId === selectedChapter), [episodes, selectedChapter]);
   const nextChapter = chapterIndex > 0 ? episodes[chapterIndex - 1] : null;
   const prevChapter = chapterIndex >= 0 && chapterIndex < episodes.length - 1 ? episodes[chapterIndex + 1] : null;
   const changeChapter = (chapter) => {
     if (!chapter?.episodeId) return;
+    setDismissedNextPrompt(false);
+    setShowNextPrompt(false);
     setSelectedChapter(chapter.episodeId);
   };
+  const selectChapter = (chapterId) => {
+    setDismissedNextPrompt(false);
+    setShowNextPrompt(false);
+    setSelectedChapter(chapterId || "");
+  };
 
-  const toggleFullscreen = async () => {
-    if (typeof document === "undefined") return;
-    try {
-      if (document.fullscreenElement) {
-        await document.exitFullscreen();
-        return;
-      }
-      if (readerRef.current?.requestFullscreen) {
-        await readerRef.current.requestFullscreen();
-      }
-    } catch {
-      // ignore fullscreen unsupported/rejected
-    }
+  const openReaderFullscreen = () => {
+    setDismissedNextPrompt(false);
+    setShowNextPrompt(false);
+    setIsReaderFullscreen(true);
+  };
+
+  const closeReaderFullscreen = () => {
+    setIsReaderFullscreen(false);
+    setDismissedNextPrompt(false);
+    setShowNextPrompt(false);
   };
 
   if (loading) {
@@ -349,7 +380,7 @@ export default function WatchPage() {
           <span className="mb-1 block text-xs uppercase tracking-wider text-emerald-200">Chapter</span>
           <select
             value={selectedChapter}
-            onChange={(e) => setSelectedChapter(e.target.value)}
+            onChange={(e) => selectChapter(e.target.value)}
             className="w-full rounded-xl border border-white/15 bg-emerald-950/80 px-3 py-2 text-sm text-white outline-none focus:border-emerald-300/60"
           >
             {episodes.map((item) => (
@@ -378,14 +409,14 @@ export default function WatchPage() {
         </button>
         <button
           type="button"
-          onClick={toggleFullscreen}
+          onClick={openReaderFullscreen}
           className="rounded-xl border border-emerald-300/40 bg-emerald-500/10 px-3 py-2 text-sm font-semibold text-emerald-100 transition hover:bg-emerald-500/20 sm:col-span-2"
         >
-          {isFullscreen ? "Keluar Fullscreen" : "Fullscreen Mode"}
+          Masuk Fullscreen Chapter
         </button>
       </div>
 
-      <div ref={readerRef}>
+      <div>
         {source === NOVEL_PROVIDER ? (
           <div className="rounded-2xl border border-white/10 bg-emerald-950 p-4 sm:p-6">
             {novelContent.html ? (
@@ -443,12 +474,144 @@ export default function WatchPage() {
         </button>
         <button
           type="button"
-          onClick={toggleFullscreen}
+          onClick={openReaderFullscreen}
           className="rounded-xl border border-emerald-300/40 bg-emerald-500/10 px-3 py-2 text-sm font-semibold text-emerald-100 transition hover:bg-emerald-500/20 sm:col-span-2"
         >
-          {isFullscreen ? "Keluar Fullscreen" : "Fullscreen Mode"}
+          Masuk Fullscreen Chapter
         </button>
       </div>
+
+      {isReaderFullscreen ? (
+        <div className="fixed inset-0 z-[90] bg-black/95">
+          <div ref={fullscreenScrollRef} className="h-full overflow-y-auto p-3 pb-24 sm:p-4 sm:pb-24">
+            <div className="mx-auto w-full max-w-5xl space-y-4">
+              <div className="sticky top-0 z-10 rounded-2xl border border-white/15 bg-black/80 p-3 backdrop-blur">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-sm font-semibold text-white">{detail.title || `Komik ${animeId}`}</p>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => changeChapter(prevChapter)}
+                      disabled={!prevChapter}
+                      className="rounded-lg border border-white/20 bg-white/5 px-3 py-1.5 text-xs text-white disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      Sebelumnya
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => changeChapter(nextChapter)}
+                      disabled={!nextChapter}
+                      className="rounded-lg border border-white/20 bg-white/5 px-3 py-1.5 text-xs text-white disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      Berikutnya
+                    </button>
+                    <button
+                      type="button"
+                      onClick={closeReaderFullscreen}
+                      className="rounded-lg border border-rose-300/40 bg-rose-500/15 px-3 py-1.5 text-xs font-semibold text-rose-100"
+                    >
+                      Kembali dari Fullscreen
+                    </button>
+                  </div>
+                </div>
+                <label className="mt-2 block text-xs text-emerald-200">
+                  <span className="mb-1 block uppercase tracking-wide">Pilih Chapter</span>
+                  <select
+                    value={selectedChapter}
+                    onChange={(e) => selectChapter(e.target.value)}
+                    className="w-full rounded-xl border border-white/15 bg-black/60 px-3 py-2 text-sm text-white outline-none focus:border-emerald-300/60"
+                  >
+                    {episodes.map((item) => (
+                      <option key={item.episodeId || item.id || item.title} value={item.episodeId || ""}>
+                        {item.releaseText ? `${item.title} - rilis ${item.releaseText}` : item.title}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+
+              {source === NOVEL_PROVIDER ? (
+                <div className="rounded-2xl border border-white/10 bg-emerald-950 p-4 sm:p-6">
+                  {novelContent.html ? (
+                    <article
+                      className="max-w-none space-y-4 text-[15px] leading-7 text-slate-200"
+                      dangerouslySetInnerHTML={{ __html: novelContent.html }}
+                    />
+                  ) : novelContent.paragraphs.length > 0 ? (
+                    <article className="space-y-4">
+                      {novelContent.paragraphs.map((line, index) => (
+                        <p key={`${selectedChapter}-line-fs-${index + 1}`} className="text-[15px] leading-7 text-slate-200">
+                          {line}
+                        </p>
+                      ))}
+                    </article>
+                  ) : (
+                    <p className="text-sm text-emerald-100">Konten chapter novel belum tersedia.</p>
+                  )}
+                </div>
+              ) : (
+                <div className="space-y-2 rounded-2xl border border-white/10 bg-black p-2 sm:p-3">
+                  {images.length > 0 ? (
+                    images.map((img, index) => (
+                      <img
+                        key={`${selectedChapter}-page-fs-${index + 1}`}
+                        src={img}
+                        alt={`Page ${index + 1}`}
+                        className="w-full rounded-md"
+                        loading={index < 2 ? "eager" : "lazy"}
+                      />
+                    ))
+                  ) : (
+                    <p className="p-4 text-sm text-emerald-100">Gambar chapter belum tersedia.</p>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {showNextPrompt ? (
+            <div className="pointer-events-none fixed inset-x-0 bottom-0 z-[95] p-3 sm:p-4">
+              <div className="pointer-events-auto mx-auto flex w-full max-w-3xl flex-wrap items-center justify-between gap-2 rounded-2xl border border-white/15 bg-black/90 p-3">
+                {nextChapter ? (
+                  <>
+                    <p className="text-sm text-white">Sudah mentok chapter ini. Lanjut ke chapter berikutnya?</p>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => changeChapter(nextChapter)}
+                        className="rounded-lg bg-emerald-500 px-3 py-1.5 text-xs font-semibold text-white"
+                      >
+                        Ya, Lanjut
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowNextPrompt(false);
+                          setDismissedNextPrompt(true);
+                        }}
+                        className="rounded-lg border border-white/20 bg-white/5 px-3 py-1.5 text-xs text-white"
+                      >
+                        Tidak
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-sm text-white">Ini chapter terakhir.</p>
+                    <button
+                      type="button"
+                      onClick={closeReaderFullscreen}
+                      className="rounded-lg border border-white/20 bg-white/5 px-3 py-1.5 text-xs text-white"
+                    >
+                      Kembali dari Fullscreen
+                    </button>
+                  </>
+                )}
+              </div>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
 
       <Link
         to={`/anime/${encodeURIComponent(source || ANIME_PROVIDER)}/${encodeURIComponent(animeId)}${
