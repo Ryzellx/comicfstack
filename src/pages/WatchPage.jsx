@@ -90,6 +90,7 @@ export default function WatchPage() {
   const [detail, setDetail] = useState({});
   const [episodes, setEpisodes] = useState([]);
   const [selectedChapter, setSelectedChapter] = useState("");
+  const [isChapterLoading, setIsChapterLoading] = useState(false);
   const [images, setImages] = useState([]);
   const [novelContent, setNovelContent] = useState({ html: "", paragraphs: [] });
   const pageTopRef = useRef(null);
@@ -166,10 +167,12 @@ export default function WatchPage() {
       if (!selectedChapter) {
         setImages([]);
         setNovelContent({ html: "", paragraphs: [] });
+        setIsChapterLoading(false);
         return;
       }
 
       try {
+        setIsChapterLoading(true);
         setError("");
         const payload = await api.getChapter(selectedChapter, { source });
         if (!active) return;
@@ -200,6 +203,8 @@ export default function WatchPage() {
         setImages([]);
         setNovelContent({ html: "", paragraphs: [] });
         setError(err.message || "Gagal memuat chapter.");
+      } finally {
+        if (active) setIsChapterLoading(false);
       }
     })();
 
@@ -290,6 +295,10 @@ export default function WatchPage() {
       setDismissedNextPrompt(false);
       return;
     }
+    if (isChapterLoading) {
+      setShowNextPrompt(false);
+      return;
+    }
 
     const container = fullscreenScrollRef.current;
     if (!container) return;
@@ -298,7 +307,6 @@ export default function WatchPage() {
       const nearBottom = container.scrollTop + container.clientHeight >= container.scrollHeight - 80;
       if (!nearBottom) {
         setShowNextPrompt(false);
-        setDismissedNextPrompt(false);
         return;
       }
       if (!dismissedNextPrompt) setShowNextPrompt(true);
@@ -307,7 +315,7 @@ export default function WatchPage() {
     onScroll();
     container.addEventListener("scroll", onScroll, { passive: true });
     return () => container.removeEventListener("scroll", onScroll);
-  }, [isReaderFullscreen, dismissedNextPrompt, selectedChapter, images.length, novelContent.html, novelContent.paragraphs.length]);
+  }, [isReaderFullscreen, dismissedNextPrompt, selectedChapter, images.length, novelContent.html, novelContent.paragraphs.length, isChapterLoading]);
 
   useEffect(() => {
     if (typeof document === "undefined") return;
@@ -324,14 +332,21 @@ export default function WatchPage() {
   const nextChapter = chapterIndex > 0 ? episodes[chapterIndex - 1] : null;
   const prevChapter = chapterIndex >= 0 && chapterIndex < episodes.length - 1 ? episodes[chapterIndex + 1] : null;
   const changeChapter = (chapter) => {
-    if (!chapter?.episodeId) return;
+    if (!chapter?.episodeId || isChapterLoading || chapter.episodeId === selectedChapter) return;
     setDismissedNextPrompt(false);
     setShowNextPrompt(false);
+    if (isReaderFullscreen && fullscreenScrollRef.current) {
+      fullscreenScrollRef.current.scrollTo({ top: 0, left: 0, behavior: "auto" });
+    }
     setSelectedChapter(chapter.episodeId);
   };
   const selectChapter = (chapterId) => {
+    if (!chapterId || isChapterLoading || chapterId === selectedChapter) return;
     setDismissedNextPrompt(false);
     setShowNextPrompt(false);
+    if (isReaderFullscreen && fullscreenScrollRef.current) {
+      fullscreenScrollRef.current.scrollTo({ top: 0, left: 0, behavior: "auto" });
+    }
     setSelectedChapter(chapterId || "");
   };
 
@@ -431,7 +446,7 @@ export default function WatchPage() {
         <button
           type="button"
           onClick={() => changeChapter(prevChapter)}
-          disabled={!prevChapter}
+          disabled={!prevChapter || isChapterLoading}
           className="rounded-xl border border-white/20 bg-white/5 px-3 py-2 text-sm text-white disabled:cursor-not-allowed disabled:opacity-40"
         >
           Chapter Sebelumnya
@@ -439,7 +454,7 @@ export default function WatchPage() {
         <button
           type="button"
           onClick={() => changeChapter(nextChapter)}
-          disabled={!nextChapter}
+          disabled={!nextChapter || isChapterLoading}
           className="rounded-xl border border-white/20 bg-white/5 px-3 py-2 text-sm text-white disabled:cursor-not-allowed disabled:opacity-40"
         >
           Chapter Berikutnya
@@ -500,7 +515,7 @@ export default function WatchPage() {
         <button
           type="button"
           onClick={() => changeChapter(prevChapter)}
-          disabled={!prevChapter}
+          disabled={!prevChapter || isChapterLoading}
           className="rounded-xl border border-white/20 bg-white/5 px-3 py-2 text-sm text-white disabled:cursor-not-allowed disabled:opacity-40"
         >
           Chapter Sebelumnya
@@ -508,7 +523,7 @@ export default function WatchPage() {
         <button
           type="button"
           onClick={() => changeChapter(nextChapter)}
-          disabled={!nextChapter}
+          disabled={!nextChapter || isChapterLoading}
           className="rounded-xl border border-white/20 bg-white/5 px-3 py-2 text-sm text-white disabled:cursor-not-allowed disabled:opacity-40"
         >
           Chapter Berikutnya
@@ -528,7 +543,7 @@ export default function WatchPage() {
         <div className="fixed inset-0 z-[90] bg-black/45">
           <div ref={fullscreenScrollRef} className="h-full overflow-y-auto p-3 pb-24 sm:p-4 sm:pb-24">
             <div className="mx-auto w-full max-w-5xl space-y-4">
-              <div className="sticky top-0 z-10 rounded-2xl border border-white/15 bg-black/35 p-3 backdrop-blur-sm">
+              <div className="sticky top-0 z-10 rounded-2xl border border-white/15 bg-black/35 p-3">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <p className="text-sm font-semibold text-white">{detail.title || `Komik ${animeId}`}</p>
                   <div className="flex gap-2">
@@ -537,7 +552,7 @@ export default function WatchPage() {
                       onClick={() => changeChapter(prevChapter)}
                       aria-label="Chapter sebelumnya"
                       title="Chapter sebelumnya"
-                      disabled={!prevChapter}
+                      disabled={!prevChapter || isChapterLoading}
                       className="rounded-lg border border-white/20 bg-white/5 px-3 py-1.5 text-xs text-white disabled:cursor-not-allowed disabled:opacity-40"
                     >
                       Sebelumnya
@@ -547,7 +562,7 @@ export default function WatchPage() {
                       onClick={() => changeChapter(nextChapter)}
                       aria-label="Chapter berikutnya"
                       title="Chapter berikutnya"
-                      disabled={!nextChapter}
+                      disabled={!nextChapter || isChapterLoading}
                       className="rounded-lg border border-white/20 bg-white/5 px-3 py-1.5 text-xs text-white disabled:cursor-not-allowed disabled:opacity-40"
                     >
                       Berikutnya
@@ -563,12 +578,14 @@ export default function WatchPage() {
                     </button>
                   </div>
                 </div>
+                {isChapterLoading ? <p className="mt-2 text-xs text-emerald-200">Loading chapter...</p> : null}
                 <label className="mt-2 block text-xs text-emerald-200">
                   <span className="mb-1 block uppercase tracking-wide">Pilih Chapter</span>
                   <select
                     value={selectedChapter}
                     onChange={(e) => selectChapter(e.target.value)}
                     className="w-full rounded-xl border border-white/15 bg-black/60 px-3 py-2 text-sm text-white outline-none focus:border-emerald-300/60"
+                    disabled={isChapterLoading}
                   >
                     {episodes.map((item) => (
                       <option key={item.episodeId || item.id || item.title} value={item.episodeId || ""}>
@@ -620,7 +637,7 @@ export default function WatchPage() {
 
           {showNextPrompt ? (
             <div className="pointer-events-none fixed inset-x-0 bottom-0 z-[95] p-3 sm:p-4">
-              <div className="pointer-events-auto mx-auto flex w-full max-w-3xl flex-wrap items-center justify-between gap-2 rounded-2xl border border-white/15 bg-black/35 p-3 backdrop-blur-sm">
+              <div className="pointer-events-auto mx-auto flex w-full max-w-3xl flex-wrap items-center justify-between gap-2 rounded-2xl border border-white/15 bg-black/35 p-3">
                 {nextChapter ? (
                   <>
                     <p className="text-sm text-white">Sudah mentok chapter ini. Lanjut ke chapter berikutnya?</p>
