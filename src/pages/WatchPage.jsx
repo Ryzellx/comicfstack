@@ -436,44 +436,46 @@ export default function WatchPage() {
         </button>
       </div>
 
-      <div ref={readerPanelRef}>
-        {source === NOVEL_PROVIDER ? (
-          <div className="rounded-2xl border border-white/10 bg-emerald-950 p-4 sm:p-6">
-            {novelContent.html ? (
-              <article
-                className="max-w-none space-y-4 text-[15px] leading-7 text-slate-200"
-                dangerouslySetInnerHTML={{ __html: novelContent.html }}
-              />
-            ) : novelContent.paragraphs.length > 0 ? (
-              <article className="space-y-4">
-                {novelContent.paragraphs.map((line, index) => (
-                  <p key={`${selectedChapter}-line-${index + 1}`} className="text-[15px] leading-7 text-slate-200">
-                    {line}
-                  </p>
-                ))}
-              </article>
-            ) : (
-              <p className="text-sm text-emerald-100">Konten chapter novel belum tersedia.</p>
-            )}
-          </div>
-        ) : (
-          <div className="space-y-2 rounded-2xl border border-white/10 bg-black p-2 sm:p-3">
-            {images.length > 0 ? (
-              images.map((img, index) => (
-                <img
-                  key={`${selectedChapter}-page-${index + 1}`}
-                  src={img}
-                  alt={`Page ${index + 1}`}
-                  className="w-full rounded-md"
-                  loading={index < 2 ? "eager" : "lazy"}
+      {!isReaderFullscreen ? (
+        <div ref={readerPanelRef}>
+          {source === NOVEL_PROVIDER ? (
+            <div className="rounded-2xl border border-white/10 bg-emerald-950 p-4 sm:p-6">
+              {novelContent.html ? (
+                <article
+                  className="max-w-none space-y-4 text-[15px] leading-7 text-slate-200"
+                  dangerouslySetInnerHTML={{ __html: novelContent.html }}
                 />
-              ))
-            ) : (
-              <p className="p-4 text-sm text-emerald-100">Gambar chapter belum tersedia.</p>
-            )}
-          </div>
-        )}
-      </div>
+              ) : novelContent.paragraphs.length > 0 ? (
+                <article className="space-y-4">
+                  {novelContent.paragraphs.map((line, index) => (
+                    <p key={`${selectedChapter}-line-${index + 1}`} className="text-[15px] leading-7 text-slate-200">
+                      {line}
+                    </p>
+                  ))}
+                </article>
+              ) : (
+                <p className="text-sm text-emerald-100">Konten chapter novel belum tersedia.</p>
+              )}
+            </div>
+          ) : (
+            <div className="space-y-2 rounded-2xl border border-white/10 bg-black p-2 sm:p-3">
+              {images.length > 0 ? (
+                images.map((img, index) => (
+                  <img
+                    key={`${selectedChapter}-page-${index + 1}`}
+                    src={img}
+                    alt={`Page ${index + 1}`}
+                    className="w-full rounded-md"
+                    loading={index < 2 ? "eager" : "lazy"}
+                  />
+                ))
+              ) : (
+                <p className="p-4 text-sm text-emerald-100">Gambar chapter belum tersedia.</p>
+              )}
+            </div>
+          )}
+        </div>
+      ) : null}
 
       <div className="grid gap-3 rounded-2xl border border-white/10 bg-emerald-900/60 p-4 sm:grid-cols-2">
         <button
@@ -551,7 +553,7 @@ export default function WatchPage() {
                   >
                     {episodes.map((item) => (
                       <option key={item.episodeId || item.id || item.title} value={item.episodeId || ""}>
-                        {item.releaseText ? `${item.title} - rilis ${item.releaseText}` : item.title}
+                        {item.title}
                       </option>
                     ))}
                   </select>
